@@ -9,7 +9,7 @@ Run scripts periodically on system which is irregularily powered down
 ## Description
 Example:
 ```bash
-./scheduler -i 12345 -s /home/foo/script.sh
+./scheduler -i 12345 -s "/home/foo/script.sh -x foo"
 ```
 When this example is added to CRON, it executes given script in the first run. For other consecutive runs it checks if time of 12345 seconds elapsed and executes the script after that time period.
 

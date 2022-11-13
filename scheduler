@@ -51,13 +51,13 @@ show_next_launch_time=false
 unlock=false
 invalid_arguments=( )
 interval=""
-script_path=""
+script=""
 options=":s:i:lnu"
 
 while getopts "${options}" option; do
   case "${option}" in
     s)
-      script_path="${OPTARG}"
+      script="${OPTARG}"
       ;;
     i)
       interval="${OPTARG}"
@@ -83,16 +83,11 @@ if [[ "${#invalid_arguments[@]}" -gt 0 ]]; then
   err::print_invalid_options "${invalid_arguments[@]}"
 fi
 
-if [[ -z "${script_path}" ]]; then
+if [[ -z "${script}" ]]; then
   sch::throw_error_with_help 22 "Script was not defined in -s option"
 fi
 
-if [[ ! -x "$script_path" ]]; then
-  sch::throw_error_with_help 22 \
-    "Script \"${script_path}\" was not found or is not executable"
-fi
-
-path_hash=$( echo -n "${script_path}" | md5sum | awk '{print $1}' )
+path_hash=$( echo -n "${script}" | md5sum | awk '{print $1}' )
 lock_file_name="${path_hash}.lock"
 timestamp_file_name="${path_hash}.timestamp"
 
@@ -133,13 +128,14 @@ fi
 
 file::create "${lock_file_name}"
 
-eval "${script_path}"
-
+run_result=$( eval "${script}" 2>&1 )
 run_result_code="$?"
+
 if [[ "${run_result_code}" -eq 0 ]]; then
   file::timestamp "${timestamp_file_name}"
 else
-  err::throw "${run_result_code}" "Run of script \"${script_path}\" failed"
+  err::throw "${run_result_code}" \
+    "Run of script \"${script}\" failed: \"${run_result}\""
 fi
 
 rm "${lock_file_name}"
