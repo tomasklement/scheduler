@@ -34,7 +34,7 @@ Scheduler must be able to write to its directory to save last run time and lock 
 ## Installation
 You need to have installed GIT before running this command. To install run:
 ```bash
-git clone git@github.com:tomasklement/scheduler.git && git -C scheduler submodule update --init --recursive
+git clone https://github.com/tomasklement/scheduler.git && git -C scheduler submodule update --init --recursive
 ```
 This will create directory "scheduler" and clone the latest version with its submodules from github.
 
