@@ -1,0 +1,145 @@
+#!/bin/bash
+
+# Change working directory to place where this script is saved (useful when
+# running from CRON)
+cd "$(dirname "$0")"
+
+source externals/bashutils/validation
+source externals/bashutils/file
+
+# Prints script usage help
+# Globals:
+#   None
+# Arguments:
+#   None
+# Returns:
+#   Help text
+function sch::print_arguments_error_help {
+  local text=""
+
+  text="Usage: ${0} [-i <interval>] [-l|-n] -s <script>"
+  text+=$'\nOptions:\n'
+  text+=$'  -s  Script to be executed\n'
+  text+=$'  -i  Minimal interval between script executions [seconds]\n'
+  text+=$'  -u  Unlocks run (deletes lock file for given script)\n'
+  text+=$'  -l  Prints last script execution time\n'
+  text+=$'  -n  Prints next (nearest) script execution time\n'
+
+  echo "${text}" >&2
+}
+
+# Prints given error with script usage help and exits with given code
+# Globals:
+#   None
+# Arguments:
+#   Error text
+#   Exit code
+# Returns:
+#   Error text with help text
+function sch::throw_error_with_help {
+  err::print "${2}"
+  sch::print_arguments_error_help
+  exit "${1}"
+}
+
+# Change working directory to place where this script is saved (useful when
+# running from CRON)
+cd "$(dirname "$0")"
+
+show_last_launch_time=false
+show_next_launch_time=false
+unlock=false
+invalid_arguments=( )
+interval=""
+script_path=""
+options=":s:i:lnu"
+
+while getopts "${options}" option; do
+  case "${option}" in
+    s)
+      script_path="${OPTARG}"
+      ;;
+    i)
+      interval="${OPTARG}"
+      ;;
+    u)
+      unlock=true
+      ;;
+    l)
+      show_last_launch_time=true
+      ;;
+    n)
+      show_next_launch_time=true
+      ;;
+    *)
+      if [[ "$options" != *"${OPTARG}:"* ]]; then
+        invalid_arguments+=( "${OPTARG}" )
+      fi
+      ;;
+  esac
+done
+
+if [[ "${#invalid_arguments[@]}" -gt 0 ]]; then
+  err::print_invalid_options "${invalid_arguments[@]}"
+fi
+
+if [[ -z "${script_path}" ]]; then
+  sch::throw_error_with_help 22 "Script was not defined in -s option"
+fi
+
+if [[ ! -x "$script_path" ]]; then
+  sch::throw_error_with_help 22 \
+    "Script \"${script_path}\" was not found or is not executable"
+fi
+
+path_hash=$( echo -n "${script_path}" | md5sum | awk '{print $1}' )
+lock_file_name="${path_hash}.lock"
+timestamp_file_name="${path_hash}.timestamp"
+
+last_launch_time=$( cat "${timestamp_file_name}" 2>/dev/null )
+
+if ! val::is_int "${last_launch_time}" ; then
+  last_launch_time=0
+fi
+
+if $show_last_launch_time ; then
+    date -r "${last_launch_time}" +'%Y-%m-%dT%H:%M:%S'
+    exit 0
+fi
+
+if [[ -z "${interval}" ]]; then
+  sch::throw_error_with_help 22 "Run interval was not defined in -i option"
+fi
+
+current_time=$(date +%s)
+next_launch_time=$((last_launch_time + interval))
+
+if $show_next_launch_time ; then
+    date -r "${next_launch_time}" +'%Y-%m-%dT%H:%M:%S'
+    exit 0
+fi
+
+if $unlock ; then
+  file::remove_lock "${lock_file_name}"
+fi
+
+if [[ "${current_time}" -lt "${next_launch_time}" ]]; then
+  exit 0
+fi
+
+if [[ -f "${lock_file_name}" ]]; then
+  err::throw 13 "Run blocked by lock file \"${lock_file_name}\""
+fi
+
+file::create "${lock_file_name}"
+
+eval "${script_path}"
+
+run_result_code="$?"
+if [[ "${run_result_code}" -eq 0 ]]; then
+  file::timestamp "${timestamp_file_name}"
+else
+  err::throw "${run_result_code}" "Run of script \"${script_path}\" failed"
+fi
+
+rm "${lock_file_name}"
