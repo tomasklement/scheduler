@@ -4,8 +4,9 @@
 # running from CRON)
 cd "$(dirname "$0")"
 
-source externals/bashutils/validation
+source externals/bashutils/date
 source externals/bashutils/file
+source externals/bashutils/validation
 
 # Prints script usage help
 # Globals:
@@ -99,7 +100,7 @@ if ! val::is_int "${last_launch_time}" ; then
 fi
 
 if $show_last_launch_time ; then
-    date -r "${last_launch_time}" +'%Y-%m-%dT%H:%M:%S'
+    date::format_timestamp "${last_launch_time}" "%Y-%m-%dT%H:%M:%S"
     exit 0
 fi
 
@@ -111,7 +112,7 @@ current_time=$(date +%s)
 next_launch_time=$((last_launch_time + interval))
 
 if $show_next_launch_time ; then
-    date -r "${next_launch_time}" +'%Y-%m-%dT%H:%M:%S'
+    date::format_timestamp "${next_launch_time}" "%Y-%m-%dT%H:%M:%S"
     exit 0
 fi
 
