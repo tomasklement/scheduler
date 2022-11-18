@@ -81,6 +81,7 @@ done
 
 if [[ "${#invalid_arguments[@]}" -gt 0 ]]; then
   err::print_invalid_options "${invalid_arguments[@]}"
+  sch::print_arguments_error_help
 fi
 
 if [[ -z "${script}" ]]; then
